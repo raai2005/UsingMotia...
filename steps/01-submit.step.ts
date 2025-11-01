@@ -1,7 +1,13 @@
-import {ApiRouteConfig, Handler} from "motia"
+// ====================== IMPORTS ======================
+import { ApiRouteConfig, Handler } from "motia";
 
-// accepting channel name and email(the data) to start the workflow
-export const config : ApiRouteConfig = {
+
+// ====================== CONFIG ======================
+/**
+ * API route config
+ * Accepts channel + email → starts workflow
+ */
+export const config: ApiRouteConfig = {
     name: "SubmitChannel",
     type: "api",
     path: "/submit",
@@ -9,76 +15,93 @@ export const config : ApiRouteConfig = {
     emits: ["yt.submit"],
 };
 
+
+// ====================== TYPES ======================
 interface SubmitRequest {
     channel: string;
     email: string;
 }
 
-// after getting the data
-export const handler = async (req: any, {emit, logger, state}: any) => {
+
+// ====================== HANDLER ======================
+/**
+ * Handles POST /submit
+ * 1) Validates payload
+ * 2) Creates job state
+ * 3) Emits workflow event
+ */
+export const handler = async (req: any, { emit, logger, state }: any) => {
     try {
-        logger.info("Received submission request", {body: req.body});
-        const {channel, email} = req.body as SubmitRequest;
+        // ---------- LOG REQUEST ----------
+        logger.info("Received submission request", { body: req.body });
 
-        if(!channel || !email) {
+        // ---------- EXTRACT BODY ----------
+        const { channel, email } = req.body as SubmitRequest;
+
+        // ---------- VALIDATE REQUIRED FIELDS ----------
+        if (!channel || !email) {
             return {
                 status: 400,
                 body: {
-                    error: "Channel and email are required"
+                    error: "Channel and email are required",
                 },
             };
         }
 
-        // validate the email format
-        const eamilRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if(!eamilRegex.test(email)) {
+        // ---------- VALIDATE EMAIL FORMAT ----------
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
             return {
                 status: 400,
                 body: {
-                    error: "Invalid email format"
+                    error: "Invalid email format",
                 },
             };
         }
 
-        // unique job id for each submission
+        // ---------- CREATE UNIQUE JOB ID ----------
         const jobID = `job_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
-        // created state for the job
-        await state.set(`job: ${jobID}`, {
+        // ---------- SAVE STATE ----------
+        await state.set(`job:${jobID}`, {
             jobID,
             channel,
             email,
             status: "queued",
-            createdAt: new Date().toISOString()
-        })
-        logger.info("Job created", {jobID, channel, email});
+            createdAt: new Date().toISOString(),
+        });
 
-        // emitting the event
+        logger.info("Job created", { jobID, channel, email });
+
+        // ---------- EMIT WORKFLOW EVENT ----------
         await emit({
             topic: "yt.submit",
             data: {
                 jobID,
                 channel,
-                email
-            }
+                email,
+            },
         });
+
+        // ---------- SUCCESS RESPONSE ----------
         return {
             status: 201,
             body: {
                 success: true,
                 jobID,
-                message: "Job submitted successfully. You will get an email soon."
+                message: "Job submitted successfully. You will get an email soon.",
             },
         };
 
+    } catch (error: any) {
+        // ---------- ERROR HANDLING ----------
+        logger.error("Error in Submission handler:", { error: error.message });
 
-    } catch(error: any) {
-        logger.error("Error in Submission handler:", {error: error.message});
         return {
             status: 500,
             body: {
-                error: "Internal Server Error"
+                error: "Internal Server Error",
             },
         };
     }
-}
+};
