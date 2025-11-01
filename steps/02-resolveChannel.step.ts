@@ -34,7 +34,7 @@ export const handler = async (eventData: any, {emit, logger, state}: any) => {
         await state.set(`job: ${jobID}`, {
             ...jobData,
             status: "resolving channel"
-        })
+        });
 
         let channelID: string | null = null
         let channelName: string = ""
@@ -85,6 +85,8 @@ export const handler = async (eventData: any, {emit, logger, state}: any) => {
             topic: "yt.channel.resolved",
             data: {
                 jobID,
+                channelID,
+                channelName,
                 email,
             },
         });
